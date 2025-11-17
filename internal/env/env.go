@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-func GetString(key, fallback string) string {
+func GetString(key string, fallback string) string {
 	val, ok := os.LookupEnv(key)
 	if !ok {
 		return fallback
