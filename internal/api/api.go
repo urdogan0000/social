@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
-	_ "github.com/urdogan0000/social/docs/swagger"
 	"github.com/urdogan0000/social/auth"
+	_ "github.com/urdogan0000/social/docs/swagger"
 	"github.com/urdogan0000/social/internal/config"
 	"github.com/urdogan0000/social/internal/middleware"
 	"github.com/urdogan0000/social/posts"
@@ -19,6 +19,7 @@ type Application struct {
 	UserHandler *users.Handler
 	PostHandler *posts.Handler
 	AuthHandler *auth.Handler
+	AuthService *auth.Service
 }
 
 func (app *Application) Mount() http.Handler {
@@ -58,13 +59,17 @@ func (app *Application) Mount() http.Handler {
 		})
 
 		r.Route("/posts", func(r chi.Router) {
-			r.Post("/", app.PostHandler.Create)
 			r.Get("/", app.PostHandler.List)
 			r.Get("/search", app.PostHandler.Search)
 			r.Get("/tags", app.PostHandler.GetByTags)
 			r.Get("/{id}", app.PostHandler.Get)
-			r.Put("/{id}", app.PostHandler.Update)
-			r.Delete("/{id}", app.PostHandler.Delete)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware(app.AuthService))
+				r.Post("/", app.PostHandler.Create)
+				r.Put("/{id}", app.PostHandler.Update)
+				r.Delete("/{id}", app.PostHandler.Delete)
+			})
 		})
 	})
 

@@ -4,7 +4,6 @@ package posts
 type CreateRequest struct {
 	Title   string   `json:"title" validate:"required,min=1,max=255"`
 	Content string   `json:"content" validate:"required,min=1"`
-	UserID  uint     `json:"user_id" validate:"required"`
 	Tags    []string `json:"tags,omitempty"`
 }
 

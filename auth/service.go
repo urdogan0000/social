@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -30,7 +29,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("username already exists")
+		return nil, ErrUsernameExists
 	}
 
 	existingUser, err = s.userRepo.GetByEmail(ctx, req.Email)
@@ -38,7 +37,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("email already exists")
+		return nil, ErrEmailExists
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -74,11 +73,14 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*AuthRespo
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*AuthResponse, error) {
 	user, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, errors.New("invalid email or password")
+		if err == users.ErrNotFound {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	token, err := s.generateToken(user.ID, user.Email)
@@ -109,39 +111,39 @@ func (s *Service) generateToken(userID uint, email string) (string, error) {
 }
 
 func (s *Service) ValidateToken(tokenString string) (uint, string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, ErrInvalidToken
 		}
 		return []byte(s.jwtSecret), nil
 	})
 
 	if err != nil {
-		return 0, "", err
+		return 0, "", ErrInvalidToken
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		userIDVal, exists := claims["user_id"]
 		if !exists {
-			return 0, "", errors.New("invalid token: missing user_id")
+			return 0, "", ErrInvalidToken
 		}
 		userIDFloat, ok := userIDVal.(float64)
 		if !ok {
-			return 0, "", errors.New("invalid token: invalid user_id type")
+			return 0, "", ErrInvalidToken
 		}
 		userID := uint(userIDFloat)
 
 		emailVal, exists := claims["email"]
 		if !exists {
-			return 0, "", errors.New("invalid token: missing email")
+			return 0, "", ErrInvalidToken
 		}
 		email, ok := emailVal.(string)
 		if !ok {
-			return 0, "", errors.New("invalid token: invalid email type")
+			return 0, "", ErrInvalidToken
 		}
 
 		return userID, email, nil
 	}
 
-	return 0, "", errors.New("invalid token")
+	return 0, "", ErrInvalidToken
 }

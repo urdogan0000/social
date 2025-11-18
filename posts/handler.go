@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	httputil "github.com/urdogan0000/social/internal/http"
 	"github.com/urdogan0000/social/internal/logger"
+	"github.com/urdogan0000/social/internal/middleware"
 	"github.com/urdogan0000/social/internal/validator"
 )
 
@@ -34,33 +36,39 @@ func NewHandler(service *Service) *Handler {
 // @Failure 500 {object} map[string]string
 // @Router /posts [post]
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		httputil.RespondError(w, r, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	post, err := h.service.Create(r.Context(), req)
+	post, err := h.service.Create(r.Context(), userID, req)
 	if err != nil {
-		if err.Error() == "user not found" {
+		if err == ErrNotFound {
 			logger.Logger().Warn().
-				Uint("user_id", req.UserID).
+				Uint("user_id", userID).
 				Str("title", req.Title).
 				Msg("Post creation failed: user not found")
-			respondError(w, http.StatusNotFound, err.Error())
+			httputil.RespondError(w, r, http.StatusNotFound, "user_not_found")
 			return
 		}
 		logger.Logger().Error().
 			Err(err).
-			Uint("user_id", req.UserID).
+			Uint("user_id", userID).
 			Str("title", req.Title).
 			Msg("Failed to create post")
-		respondError(w, http.StatusInternalServerError, "failed to create post")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_create_post")
 		return
 	}
 
@@ -69,7 +77,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Uint("user_id", post.UserID).
 		Str("title", post.Title).
 		Msg("Post created successfully")
-	respondJSON(w, http.StatusCreated, post)
+	httputil.RespondJSON(w, http.StatusCreated, post)
 }
 
 // GetPost godoc
@@ -87,21 +95,21 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid post ID")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_post_id")
 		return
 	}
 
 	post, err := h.service.GetByID(r.Context(), uint(id))
 	if err != nil {
 		if err == ErrNotFound {
-			respondError(w, http.StatusNotFound, err.Error())
+			httputil.RespondError(w, r, http.StatusNotFound, "post_not_found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to get post")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_get_post")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, post)
+	httputil.RespondJSON(w, http.StatusOK, post)
 }
 
 // UpdatePost godoc
@@ -118,32 +126,46 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]string
 // @Router /posts/{id} [put]
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		httputil.RespondError(w, r, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid post ID")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_post_id")
 		return
 	}
 
 	var req UpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	post, err := h.service.Update(r.Context(), uint(id), req)
+	post, err := h.service.Update(r.Context(), uint(id), userID, req)
 	if err != nil {
 		if err == ErrNotFound {
 			logger.Logger().Warn().Uint("post_id", uint(id)).Msg("Post update failed: not found")
-			respondError(w, http.StatusNotFound, err.Error())
+			httputil.RespondError(w, r, http.StatusNotFound, "post_not_found")
+			return
+		}
+		if err == ErrForbidden {
+			logger.Logger().Warn().
+				Uint("post_id", uint(id)).
+				Uint("user_id", userID).
+				Msg("Post update failed: forbidden")
+			httputil.RespondError(w, r, http.StatusForbidden, "forbidden")
 			return
 		}
 		logger.Logger().Error().Err(err).Uint("post_id", uint(id)).Msg("Failed to update post")
-		respondError(w, http.StatusInternalServerError, "failed to update post")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_update_post")
 		return
 	}
 
@@ -152,7 +174,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Uint("user_id", post.UserID).
 		Str("title", post.Title).
 		Msg("Post updated successfully")
-	respondJSON(w, http.StatusOK, post)
+	httputil.RespondJSON(w, http.StatusOK, post)
 }
 
 // DeletePost godoc
@@ -168,20 +190,34 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]string
 // @Router /posts/{id} [delete]
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid post ID")
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		httputil.RespondError(w, r, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	if err := h.service.Delete(r.Context(), uint(id)); err != nil {
+	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
+	if err != nil {
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_post_id")
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), uint(id), userID); err != nil {
 		if err == ErrNotFound {
 			logger.Logger().Warn().Uint("post_id", uint(id)).Msg("Post delete failed: not found")
-			respondError(w, http.StatusNotFound, err.Error())
+			httputil.RespondError(w, r, http.StatusNotFound, "post_not_found")
+			return
+		}
+		if err == ErrForbidden {
+			logger.Logger().Warn().
+				Uint("post_id", uint(id)).
+				Uint("user_id", userID).
+				Msg("Post delete failed: forbidden")
+			httputil.RespondError(w, r, http.StatusForbidden, "forbidden")
 			return
 		}
 		logger.Logger().Error().Err(err).Uint("post_id", uint(id)).Msg("Failed to delete post")
-		respondError(w, http.StatusInternalServerError, "failed to delete post")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_delete_post")
 		return
 	}
 
@@ -201,15 +237,15 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]string
 // @Router /posts [get]
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	limit, offset := getPaginationParams(r)
+	limit, offset := httputil.GetPaginationParams(r)
 
 	result, err := h.service.List(r.Context(), limit, offset)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list posts")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_list_posts")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	httputil.RespondJSON(w, http.StatusOK, result)
 }
 
 // GetPostsByUser godoc
@@ -228,18 +264,18 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetByUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.ParseUint(chi.URLParam(r, "userID"), 10, 32)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid user ID")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_user_id")
 		return
 	}
 
-	limit, offset := getPaginationParams(r)
+	limit, offset := httputil.GetPaginationParams(r)
 	result, err := h.service.GetByUserID(r.Context(), uint(userID), limit, offset)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user posts")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_get_user_posts")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	httputil.RespondJSON(w, http.StatusOK, result)
 }
 
 // SearchPosts godoc
@@ -258,18 +294,18 @@ func (h *Handler) GetByUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		respondError(w, http.StatusBadRequest, "search query is required")
+		httputil.RespondError(w, r, http.StatusBadRequest, "search_query_required")
 		return
 	}
 
-	limit, offset := getPaginationParams(r)
+	limit, offset := httputil.GetPaginationParams(r)
 	posts, err := h.service.SearchByTitle(r.Context(), query, limit, offset)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to search posts")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_search_posts")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	httputil.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"posts": posts,
 		"query": query,
 	})
@@ -291,7 +327,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetByTags(w http.ResponseWriter, r *http.Request) {
 	tagsParam := r.URL.Query().Get("tags")
 	if tagsParam == "" {
-		respondError(w, http.StatusBadRequest, "tags parameter is required")
+		httputil.RespondError(w, r, http.StatusBadRequest, "tags_parameter_required")
 		return
 	}
 
@@ -300,49 +336,15 @@ func (h *Handler) GetByTags(w http.ResponseWriter, r *http.Request) {
 		tags[i] = strings.TrimSpace(tag)
 	}
 
-	limit, offset := getPaginationParams(r)
+	limit, offset := httputil.GetPaginationParams(r)
 	posts, err := h.service.GetByTags(r.Context(), tags, limit, offset)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get posts by tags")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_get_posts_by_tags")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	httputil.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"posts": posts,
 		"tags":  tags,
 	})
-}
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
-}
-
-func getPaginationParams(r *http.Request) (limit, offset int) {
-	limit = 20
-	offset = 0
-
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
-			limit = parsed
-			if limit > 100 {
-				limit = 100
-			}
-		}
-	}
-
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
-			offset = parsed
-		}
-	}
-
-	return limit, offset
 }

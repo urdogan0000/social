@@ -70,6 +70,7 @@ func registerRoutes(
 	userHandler *users.Handler,
 	postHandler *posts.Handler,
 	authHandler *auth.Handler,
+	authService *auth.Service,
 	cfg *config.Config,
 ) {
 	app := &api.Application{
@@ -77,6 +78,7 @@ func registerRoutes(
 		UserHandler: userHandler,
 		PostHandler: postHandler,
 		AuthHandler: authHandler,
+		AuthService: authService,
 	}
 
 	var srv *http.Server

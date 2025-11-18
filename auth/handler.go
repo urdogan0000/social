@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	httputil "github.com/urdogan0000/social/internal/http"
 	"github.com/urdogan0000/social/internal/logger"
 	"github.com/urdogan0000/social/internal/validator"
 )
@@ -33,23 +34,23 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	response, err := h.service.Register(r.Context(), req)
 	if err != nil {
-		if err.Error() == "username already exists" || err.Error() == "email already exists" {
+		if err == ErrUsernameExists || err == ErrEmailExists {
 			logger.Logger().Warn().
 				Str("username", req.Username).
 				Str("email", req.Email).
 				Msg("User registration failed: already exists")
-			respondError(w, http.StatusConflict, err.Error())
+			httputil.RespondError(w, r, http.StatusConflict, "user_already_exists")
 			return
 		}
 		logger.Logger().Error().
@@ -57,7 +58,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			Str("username", req.Username).
 			Str("email", req.Email).
 			Msg("Failed to register user")
-		respondError(w, http.StatusInternalServerError, "failed to register user")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_register_user")
 		return
 	}
 
@@ -66,7 +67,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Str("username", response.User.Username).
 		Str("email", response.User.Email).
 		Msg("User registered successfully")
-	respondJSON(w, http.StatusCreated, response)
+	httputil.RespondJSON(w, http.StatusCreated, response)
 }
 
 // Login godoc
@@ -84,29 +85,29 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	response, err := h.service.Login(r.Context(), req)
 	if err != nil {
-		if err.Error() == "invalid email or password" {
+		if err == ErrInvalidCredentials {
 			logger.Logger().Warn().
 				Str("email", req.Email).
 				Msg("Login failed: invalid credentials")
-			respondError(w, http.StatusUnauthorized, err.Error())
+			httputil.RespondError(w, r, http.StatusUnauthorized, "invalid_credentials")
 			return
 		}
 		logger.Logger().Error().
 			Err(err).
 			Str("email", req.Email).
 			Msg("Failed to login")
-		respondError(w, http.StatusInternalServerError, "failed to login")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_login")
 		return
 	}
 
@@ -115,18 +116,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Str("username", response.User.Username).
 		Str("email", response.User.Email).
 		Msg("User logged in successfully")
-	respondJSON(w, http.StatusOK, response)
-}
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
+	httputil.RespondJSON(w, http.StatusOK, response)
 }
 

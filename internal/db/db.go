@@ -34,10 +34,6 @@ func NewGORM(addr string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxOpenConns(30)
-	sqlDB.SetMaxIdleConns(30)
-	sqlDB.SetConnMaxIdleTime(15 * time.Minute)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err = sqlDB.PingContext(ctx); err != nil {

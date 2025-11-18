@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/urdogan0000/social/internal/i18n"
+	httputil "github.com/urdogan0000/social/internal/http"
 	"github.com/urdogan0000/social/internal/logger"
 	"github.com/urdogan0000/social/internal/validator"
 )
@@ -36,12 +36,12 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, r, http.StatusBadRequest, "invalid_request_body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, r, http.StatusBadRequest, "validation_failed")
+		httputil.RespondError(w, r, http.StatusBadRequest, "validation_failed")
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 				Str("username", req.Username).
 				Str("email", req.Email).
 				Msg("User creation failed: already exists")
-			respondError(w, r, http.StatusConflict, "user_already_exists")
+			httputil.RespondError(w, r, http.StatusConflict, "user_already_exists")
 			return
 		}
 		logger.Logger().Error().
@@ -60,7 +60,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			Str("username", req.Username).
 			Str("email", req.Email).
 			Msg("Failed to create user")
-		respondError(w, r, http.StatusInternalServerError, "failed_to_create_user")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_create_user")
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Str("username", user.Username).
 		Str("email", user.Email).
 		Msg("User created successfully")
-	respondJSON(w, http.StatusCreated, user)
+	httputil.RespondJSON(w, http.StatusCreated, user)
 }
 
 // GetUser godoc
@@ -87,7 +87,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		respondError(w, r, http.StatusBadRequest, "invalid_user_id")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_user_id")
 		return
 	}
 
@@ -95,16 +95,16 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrNotFound {
 			logger.Logger().Debug().Uint("user_id", uint(id)).Msg("User not found")
-			respondError(w, r, http.StatusNotFound, "user_not_found")
+			httputil.RespondError(w, r, http.StatusNotFound, "user_not_found")
 			return
 		}
 		logger.Logger().Error().Err(err).Uint("user_id", uint(id)).Msg("Failed to get user")
-		respondError(w, r, http.StatusInternalServerError, "failed_to_get_user")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_get_user")
 		return
 	}
 
 	logger.Logger().Debug().Uint("user_id", user.ID).Str("username", user.Username).Msg("User retrieved")
-	respondJSON(w, http.StatusOK, user)
+	httputil.RespondJSON(w, http.StatusOK, user)
 }
 
 // UpdateUser godoc
@@ -124,18 +124,18 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		respondError(w, r, http.StatusBadRequest, "invalid_user_id")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_user_id")
 		return
 	}
 
 	var req UpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, r, http.StatusBadRequest, "invalid_request_body")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_request_body")
 		return
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		respondError(w, r, http.StatusBadRequest, "validation_failed")
+		httputil.RespondError(w, r, http.StatusBadRequest, "validation_failed")
 		return
 	}
 
@@ -143,16 +143,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrNotFound {
 			logger.Logger().Warn().Uint("user_id", uint(id)).Msg("User update failed: not found")
-			respondError(w, r, http.StatusNotFound, "user_not_found")
+			httputil.RespondError(w, r, http.StatusNotFound, "user_not_found")
 			return
 		}
 		if err == ErrAlreadyExists {
 			logger.Logger().Warn().Uint("user_id", uint(id)).Msg("User update failed: already exists")
-			respondError(w, r, http.StatusConflict, "user_already_exists")
+			httputil.RespondError(w, r, http.StatusConflict, "user_already_exists")
 			return
 		}
 		logger.Logger().Error().Err(err).Uint("user_id", uint(id)).Msg("Failed to update user")
-		respondError(w, r, http.StatusInternalServerError, "failed_to_update_user")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_update_user")
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Uint("user_id", user.ID).
 		Str("username", user.Username).
 		Msg("User updated successfully")
-	respondJSON(w, http.StatusOK, user)
+	httputil.RespondJSON(w, http.StatusOK, user)
 }
 
 // DeleteUser godoc
@@ -178,18 +178,18 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseUint(chi.URLParam(r, "id"), 10, 32)
 	if err != nil {
-		respondError(w, r, http.StatusBadRequest, "invalid_user_id")
+		httputil.RespondError(w, r, http.StatusBadRequest, "invalid_user_id")
 		return
 	}
 
 	if err := h.service.Delete(r.Context(), uint(id)); err != nil {
 		if err == ErrNotFound {
 			logger.Logger().Warn().Uint("user_id", uint(id)).Msg("User delete failed: not found")
-			respondError(w, r, http.StatusNotFound, "user_not_found")
+			httputil.RespondError(w, r, http.StatusNotFound, "user_not_found")
 			return
 		}
 		logger.Logger().Error().Err(err).Uint("user_id", uint(id)).Msg("Failed to delete user")
-		respondError(w, r, http.StatusInternalServerError, "failed_to_delete_user")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_delete_user")
 		return
 	}
 
@@ -209,48 +209,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]string
 // @Router /users [get]
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	limit, offset := getPaginationParams(r)
+	limit, offset := httputil.GetPaginationParams(r)
 
 	result, err := h.service.List(r.Context(), limit, offset)
 	if err != nil {
-		respondError(w, r, http.StatusInternalServerError, "failed_to_list_users")
+		httputil.RespondError(w, r, http.StatusInternalServerError, "failed_to_list_users")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	httputil.RespondJSON(w, http.StatusOK, result)
 }
 
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, r *http.Request, status int, messageID string) {
-	message := i18n.T(r, messageID)
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
-}
-
-func getPaginationParams(r *http.Request) (limit, offset int) {
-	limit = 20
-	offset = 0
-
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
-			limit = parsed
-			if limit > 100 {
-				limit = 100
-			}
-		}
-	}
-
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
-			offset = parsed
-		}
-	}
-
-	return limit, offset
-}

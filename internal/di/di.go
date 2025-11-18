@@ -85,7 +85,6 @@ type userRepoAdapter struct {
 	repo users.Repository
 }
 
-func (a userRepoAdapter) GetByID(ctx context.Context, id uint) (interface{}, error) {
+func (a userRepoAdapter) GetByID(ctx context.Context, id uint) (*users.Model, error) {
 	return a.repo.GetByID(ctx, id)
 }
-

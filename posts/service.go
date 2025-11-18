@@ -2,11 +2,12 @@ package posts
 
 import (
 	"context"
-	"errors"
+
+	"github.com/urdogan0000/social/users"
 )
 
 type UserRepository interface {
-	GetByID(ctx context.Context, id uint) (interface{}, error)
+	GetByID(ctx context.Context, id uint) (*users.Model, error)
 }
 
 type Service struct {
@@ -21,16 +22,16 @@ func NewService(repo Repository, userRepo UserRepository) *Service {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (*Response, error) {
-	_, err := s.userRepo.GetByID(ctx, req.UserID)
+func (s *Service) Create(ctx context.Context, userID uint, req CreateRequest) (*Response, error) {
+	_, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, err
 	}
 
 	post := &Model{
 		Title:   req.Title,
 		Content: req.Content,
-		UserID:  req.UserID,
+		UserID:  userID,
 		Tags:    req.Tags,
 	}
 
@@ -73,10 +74,14 @@ func (s *Service) GetByUserID(ctx context.Context, userID uint, limit, offset in
 	}, nil
 }
 
-func (s *Service) Update(ctx context.Context, id uint, req UpdateRequest) (*Response, error) {
+func (s *Service) Update(ctx context.Context, id uint, userID uint, req UpdateRequest) (*Response, error) {
 	post, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	if post.UserID != userID {
+		return nil, ErrForbidden
 	}
 
 	if req.Title != nil {
@@ -98,7 +103,16 @@ func (s *Service) Update(ctx context.Context, id uint, req UpdateRequest) (*Resp
 	return s.toResponse(post), nil
 }
 
-func (s *Service) Delete(ctx context.Context, id uint) error {
+func (s *Service) Delete(ctx context.Context, id uint, userID uint) error {
+	post, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if post.UserID != userID {
+		return ErrForbidden
+	}
+
 	return s.repo.Delete(ctx, id)
 }
 
