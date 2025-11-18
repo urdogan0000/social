@@ -3,6 +3,7 @@ package users
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -28,7 +29,7 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) Create(ctx context.Context, user *Model) error {
 	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to create user: %w", err)
 	}
 	return nil
 }
@@ -39,7 +40,7 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*Model, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by id %d: %w", id, err)
 	}
 	return &user, nil
 }
@@ -50,7 +51,7 @@ func (r *repository) GetByUsername(ctx context.Context, username string) (*Model
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by username %q: %w", username, err)
 	}
 	return &user, nil
 }
@@ -61,14 +62,14 @@ func (r *repository) GetByEmail(ctx context.Context, email string) (*Model, erro
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by email %q: %w", email, err)
 	}
 	return &user, nil
 }
 
 func (r *repository) Update(ctx context.Context, user *Model) error {
 	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to update user %d: %w", user.ID, err)
 	}
 	return nil
 }
@@ -76,7 +77,7 @@ func (r *repository) Update(ctx context.Context, user *Model) error {
 func (r *repository) Delete(ctx context.Context, id uint) error {
 	result := r.db.WithContext(ctx).Delete(&Model{}, id)
 	if result.Error != nil {
-		return result.Error
+		return fmt.Errorf("failed to delete user %d: %w", id, result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return ErrNotFound
@@ -91,7 +92,7 @@ func (r *repository) List(ctx context.Context, limit, offset int) ([]Model, erro
 		Offset(offset).
 		Order("created_at DESC").
 		Find(&users).Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	return users, nil
 }
@@ -99,7 +100,7 @@ func (r *repository) List(ctx context.Context, limit, offset int) ([]Model, erro
 func (r *repository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&Model{}).Count(&count).Error; err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to count users: %w", err)
 	}
 	return count, nil
 }

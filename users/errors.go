@@ -1,9 +1,13 @@
 package users
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/urdogan0000/social/internal/domain"
+)
 
 var (
-	ErrNotFound      = errors.New("user not found")
+	ErrNotFound      = domain.ErrUserNotFound
 	ErrAlreadyExists = errors.New("user already exists")
 )
 

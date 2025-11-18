@@ -7,6 +7,7 @@ import (
 	"github.com/urdogan0000/social/auth"
 	"github.com/urdogan0000/social/internal/config"
 	"github.com/urdogan0000/social/internal/db"
+	"github.com/urdogan0000/social/internal/domain"
 	"github.com/urdogan0000/social/posts"
 	"github.com/urdogan0000/social/users"
 	"go.uber.org/fx"
@@ -61,8 +62,8 @@ func provideUserService(userRepo users.Repository) *users.Service {
 }
 
 func providePostService(postRepo posts.Repository, userRepo users.Repository) *posts.Service {
-	adapter := userRepoAdapter{repo: userRepo}
-	return posts.NewService(postRepo, adapter)
+	checker := userExistsChecker{repo: userRepo}
+	return posts.NewService(postRepo, checker)
 }
 
 func provideUserHandler(userService *users.Service) *users.Handler {
@@ -81,10 +82,17 @@ func provideAuthHandler(authService *auth.Service) *auth.Handler {
 	return auth.NewHandler(authService)
 }
 
-type userRepoAdapter struct {
+type userExistsChecker struct {
 	repo users.Repository
 }
 
-func (a userRepoAdapter) GetByID(ctx context.Context, id uint) (*users.Model, error) {
-	return a.repo.GetByID(ctx, id)
+func (c userExistsChecker) UserExists(ctx context.Context, userID domain.UserID) (bool, error) {
+	_, err := c.repo.GetByID(ctx, uint(userID))
+	if err == domain.ErrUserNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

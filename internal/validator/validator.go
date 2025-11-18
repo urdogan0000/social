@@ -12,7 +12,6 @@ func init() {
 	validate = validator.New()
 }
 
-// Validate validates a struct
 func Validate(s interface{}) error {
 	if err := validate.Struct(s); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
@@ -30,7 +29,6 @@ func Validate(s interface{}) error {
 	return nil
 }
 
-// getErrorMessage returns a user-friendly error message
 func getErrorMessage(err validator.FieldError) string {
 	switch err.Tag() {
 	case "required":

@@ -29,9 +29,11 @@ func NewHandler(service *Service) *Handler {
 // @Tags posts
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param post body CreateRequest true "Post creation request"
 // @Success 201 {object} Response
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /posts [post]
@@ -118,10 +120,13 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // @Tags posts
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Post ID"
 // @Param post body UpdateRequest true "Post update request"
 // @Success 200 {object} Response
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /posts/{id} [put]
@@ -183,9 +188,12 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 // @Tags posts
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path int true "Post ID"
 // @Success 204
 // @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /posts/{id} [delete]

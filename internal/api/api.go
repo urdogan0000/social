@@ -77,5 +77,7 @@ func (app *Application) Mount() http.Handler {
 }
 
 func (app *Application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("ok"))
+	if _, err := w.Write([]byte("ok")); err != nil {
+		http.Error(w, "failed to write response", http.StatusInternalServerError)
+	}
 }

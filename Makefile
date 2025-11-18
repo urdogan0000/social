@@ -1,4 +1,4 @@
-.PHONY: swagger swagger-serve build run migrate
+.PHONY: swagger swagger-serve build run migrate test test-verbose lint
 
 swagger:
 	@echo "Generating Swagger documentation..."
@@ -16,4 +16,13 @@ run:
 
 migrate:
 	@go run cmd/migrate/main.go
+
+test:
+	@go test ./...
+
+test-verbose:
+	@go test -v ./...
+
+lint:
+	@golangci-lint run ./...
 

@@ -1,7 +1,6 @@
 package i18n
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -9,10 +8,6 @@ import (
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
-
-type contextKey string
-
-const localeKey contextKey = "locale"
 
 var bundle *i18n.Bundle
 var localizers map[string]*i18n.Localizer
@@ -91,37 +86,5 @@ func T(r *http.Request, messageID string, data ...interface{}) string {
 		return messageID
 	}
 	return msg
-}
-
-func TWithContext(ctx context.Context, messageID string, data ...interface{}) string {
-	locale := "en"
-	if val := ctx.Value(localeKey); val != nil {
-		if loc, ok := val.(string); ok {
-			locale = loc
-		}
-	}
-
-	localizer := localizers["en"]
-	if loc, ok := localizers[locale]; ok {
-		localizer = loc
-	}
-
-	var templateData interface{}
-	if len(data) > 0 {
-		templateData = data[0]
-	}
-
-	msg, err := localizer.Localize(&i18n.LocalizeConfig{
-		MessageID:    messageID,
-		TemplateData: templateData,
-	})
-	if err != nil {
-		return messageID
-	}
-	return msg
-}
-
-func SetLocale(ctx context.Context, locale string) context.Context {
-	return context.WithValue(ctx, localeKey, locale)
 }
 

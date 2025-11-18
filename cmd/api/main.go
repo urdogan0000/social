@@ -10,6 +10,10 @@ package main
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 // @host localhost:8081
 // @BasePath /v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter your JWT token. You can enter just the token (e.g., "eyJhbGci...") or with "Bearer " prefix (e.g., "Bearer eyJhbGci...")
 import (
 	"context"
 	"net/http"

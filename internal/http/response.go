@@ -6,16 +6,21 @@ import (
 	"strconv"
 
 	"github.com/urdogan0000/social/internal/i18n"
+	"github.com/urdogan0000/social/internal/logger"
 )
 
-// RespondJSON writes a JSON response
 func RespondJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		logger.Logger().Error().
+			Err(err).
+			Int("status", status).
+			Msg("Failed to encode JSON response")
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
-// RespondError writes an error response with i18n support
 func RespondError(w http.ResponseWriter, r *http.Request, status int, messageID string) {
 	message := i18n.T(r, messageID)
 	RespondJSON(w, status, map[string]string{
@@ -23,14 +28,12 @@ func RespondError(w http.ResponseWriter, r *http.Request, status int, messageID 
 	})
 }
 
-// RespondErrorWithMessage writes an error response with a direct message
 func RespondErrorWithMessage(w http.ResponseWriter, status int, message string) {
 	RespondJSON(w, status, map[string]string{
 		"error": message,
 	})
 }
 
-// GetPaginationParams extracts limit and offset from query parameters
 func GetPaginationParams(r *http.Request) (limit, offset int) {
 	limit = 20
 	offset = 0
@@ -52,4 +55,3 @@ func GetPaginationParams(r *http.Request) (limit, offset int) {
 
 	return limit, offset
 }
-
