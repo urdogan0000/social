@@ -2,28 +2,45 @@ package db
 
 import (
 	"context"
-	"database/sql"
+	"log"
+	"os"
 	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-func New(addr string, maxOpenConns,
-	maxIdleConns int,
-	maxIdleTime string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", addr)
+func NewGORM(addr string) (*gorm.DB, error) {
+	gormLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Error,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		},
+	)
+
+	db, err := gorm.Open(postgres.Open(addr), &gorm.Config{
+		Logger: gormLogger,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(maxIdleConns)
-	duration, err := time.ParseDuration(maxIdleTime)
+	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err
 	}
-	db.SetConnMaxIdleTime(duration)
-	db.SetMaxIdleConns(maxIdleConns)
+
+	sqlDB.SetMaxOpenConns(30)
+	sqlDB.SetMaxIdleConns(30)
+	sqlDB.SetConnMaxIdleTime(15 * time.Minute)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err = db.PingContext(ctx); err != nil {
+	if err = sqlDB.PingContext(ctx); err != nil {
 		return nil, err
 	}
 
