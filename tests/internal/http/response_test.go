@@ -1,4 +1,4 @@
-package httputil
+package httputil_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	httputil "github.com/urdogan0000/social/internal/http"
 	"github.com/urdogan0000/social/internal/i18n"
 )
 
@@ -21,7 +22,7 @@ func initI18N(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get working directory: %v", err)
 		}
-		root := filepath.Join(wd, "..", "..")
+		root := filepath.Join(wd, "..", "..", "..")
 		if err := os.Chdir(root); err != nil {
 			t.Fatalf("failed to change directory: %v", err)
 		}
@@ -38,7 +39,7 @@ func TestRespondJSON(t *testing.T) {
 	rr := httptest.NewRecorder()
 	payload := map[string]string{"status": "ok"}
 
-	RespondJSON(rr, http.StatusCreated, payload)
+	httputil.RespondJSON(rr, http.StatusCreated, payload)
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, rr.Code)
@@ -60,7 +61,7 @@ func TestRespondErrorWithMessage(t *testing.T) {
 	rr := httptest.NewRecorder()
 	message := "custom error"
 
-	RespondErrorWithMessage(rr, http.StatusBadRequest, message)
+	httputil.RespondErrorWithMessage(rr, http.StatusBadRequest, message)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
@@ -81,7 +82,7 @@ func TestRespondError_Localized(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/?lang=tr", nil)
 
-	RespondError(rr, req, http.StatusNotFound, "user_not_found")
+	httputil.RespondError(rr, req, http.StatusNotFound, "user_not_found")
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
@@ -113,10 +114,11 @@ func TestGetPaginationParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			limit, offset := GetPaginationParams(req)
+			limit, offset := httputil.GetPaginationParams(req)
 			if limit != tt.wantLimit || offset != tt.wantOffset {
 				t.Fatalf("expected (limit=%d, offset=%d), got (%d, %d)", tt.wantLimit, tt.wantOffset, limit, offset)
 			}
 		})
 	}
 }
+

@@ -1,10 +1,11 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/urdogan0000/social/auth"
 	"github.com/urdogan0000/social/internal/domain"
 	"github.com/urdogan0000/social/users"
 	"golang.org/x/crypto/bcrypt"
@@ -75,7 +76,7 @@ func (m *mockUserRepository) Count(ctx context.Context) (int64, error) {
 func TestService_Register(t *testing.T) {
 	tests := []struct {
 		name         string
-		req          RegisterRequest
+		req          auth.RegisterRequest
 		existingUser *users.Model
 		createErr    error
 		wantErr      bool
@@ -83,22 +84,22 @@ func TestService_Register(t *testing.T) {
 	}{
 		{
 			name:    "successful registration",
-			req:     RegisterRequest{Username: "testuser", Email: "test@example.com", Password: "password123"},
+			req:     auth.RegisterRequest{Username: "testuser", Email: "test@example.com", Password: "password123"},
 			wantErr: false,
 		},
 		{
 			name:         "username already exists",
-			req:          RegisterRequest{Username: "existing", Email: "test@example.com", Password: "password123"},
+			req:          auth.RegisterRequest{Username: "existing", Email: "test@example.com", Password: "password123"},
 			existingUser: &users.Model{ID: 1, Username: "existing", Email: "existing@example.com"},
 			wantErr:      true,
-			expectedErr:  ErrUsernameExists,
+			expectedErr:  auth.ErrUsernameExists,
 		},
 		{
 			name:         "email already exists",
-			req:          RegisterRequest{Username: "newuser", Email: "existing@example.com", Password: "password123"},
+			req:          auth.RegisterRequest{Username: "newuser", Email: "existing@example.com", Password: "password123"},
 			existingUser: &users.Model{ID: 1, Username: "existing", Email: "existing@example.com"},
 			wantErr:      true,
-			expectedErr:  ErrEmailExists,
+			expectedErr:  auth.ErrEmailExists,
 		},
 	}
 
@@ -112,7 +113,7 @@ func TestService_Register(t *testing.T) {
 				repo.users[tt.existingUser.ID] = tt.existingUser
 			}
 
-			service := NewService(repo, "test-secret", 24)
+			service := auth.NewService(repo, "test-secret", 24)
 
 			ctx := context.Background()
 			result, err := service.Register(ctx, tt.req)
@@ -144,29 +145,29 @@ func TestService_Login(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		req          LoginRequest
+		req          auth.LoginRequest
 		existingUser *users.Model
 		wantErr      bool
 		expectedErr  error
 	}{
 		{
 			name:         "successful login",
-			req:          LoginRequest{Email: "test@example.com", Password: "password123"},
+			req:          auth.LoginRequest{Email: "test@example.com", Password: "password123"},
 			existingUser: &users.Model{ID: 1, Email: "test@example.com", Password: hashedPassword},
 			wantErr:      false,
 		},
 		{
 			name:        "user not found",
-			req:         LoginRequest{Email: "notfound@example.com", Password: "password123"},
+			req:         auth.LoginRequest{Email: "notfound@example.com", Password: "password123"},
 			wantErr:     true,
-			expectedErr: ErrInvalidCredentials,
+			expectedErr: auth.ErrInvalidCredentials,
 		},
 		{
 			name:         "wrong password",
-			req:          LoginRequest{Email: "test@example.com", Password: "wrongpassword"},
+			req:          auth.LoginRequest{Email: "test@example.com", Password: "wrongpassword"},
 			existingUser: &users.Model{ID: 1, Email: "test@example.com", Password: hashedPassword},
 			wantErr:      true,
-			expectedErr:  ErrInvalidCredentials,
+			expectedErr:  auth.ErrInvalidCredentials,
 		},
 	}
 
@@ -179,7 +180,7 @@ func TestService_Login(t *testing.T) {
 				repo.users[tt.existingUser.ID] = tt.existingUser
 			}
 
-			service := NewService(repo, "test-secret", 24)
+			service := auth.NewService(repo, "test-secret", 24)
 
 			ctx := context.Background()
 			result, err := service.Login(ctx, tt.req)
@@ -207,34 +208,14 @@ func TestService_Login(t *testing.T) {
 }
 
 func TestService_ValidateToken(t *testing.T) {
-	service := NewService(&mockUserRepository{}, "test-secret", 24)
-
-	// Generate a valid token
-	userID := uint(1)
-	email := "test@example.com"
-	token, err := service.generateToken(userID, email)
-	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
-	}
-
-	// Test valid token
-	validatedUserID, validatedEmail, err := service.ValidateToken(token)
-	if err != nil {
-		t.Errorf("unexpected error validating valid token: %v", err)
-	}
-	if validatedUserID != userID {
-		t.Errorf("expected userID %d, got %d", userID, validatedUserID)
-	}
-	if validatedEmail != email {
-		t.Errorf("expected email %q, got %q", email, validatedEmail)
-	}
+	service := auth.NewService(&mockUserRepository{}, "test-secret", 24)
 
 	// Test invalid token
-	_, _, err = service.ValidateToken("invalid-token")
+	_, _, err := service.ValidateToken("invalid-token")
 	if err == nil {
 		t.Errorf("expected error for invalid token")
 	}
-	if !errors.Is(err, ErrInvalidToken) {
+	if !errors.Is(err, auth.ErrInvalidToken) {
 		t.Errorf("expected ErrInvalidToken, got %v", err)
 	}
 
@@ -243,4 +224,33 @@ func TestService_ValidateToken(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error for empty token")
 	}
+
+	// Test valid token - use Register to get a valid token
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	repo := &mockUserRepository{
+		users: map[uint]*users.Model{
+			1: {ID: 1, Email: "test@example.com", Password: hashedPassword},
+		},
+	}
+	serviceWithUser := auth.NewService(repo, "test-secret", 24)
+	
+	ctx := context.Background()
+	loginReq := auth.LoginRequest{Email: "test@example.com", Password: "password123"}
+	result, err := serviceWithUser.Login(ctx, loginReq)
+	if err != nil {
+		t.Fatalf("failed to login: %v", err)
+	}
+
+	// Validate the token from login
+	validatedUserID, validatedEmail, err := serviceWithUser.ValidateToken(result.Token)
+	if err != nil {
+		t.Errorf("unexpected error validating valid token: %v", err)
+	}
+	if validatedUserID != 1 {
+		t.Errorf("expected userID 1, got %d", validatedUserID)
+	}
+	if validatedEmail != "test@example.com" {
+		t.Errorf("expected email 'test@example.com', got %q", validatedEmail)
+	}
 }
+

@@ -51,7 +51,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
+		httputil.RespondValidationError(w, r, err)
 		return
 	}
 
@@ -150,7 +150,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
+		httputil.RespondValidationError(w, r, err)
 		return
 	}
 

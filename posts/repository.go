@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/urdogan0000/social/internal/db"
 	"gorm.io/gorm"
 )
 
@@ -29,8 +30,13 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
+// getDB retrieves the database connection from context or uses default
+func (r *repository) getDB(ctx context.Context) *gorm.DB {
+	return db.GetDBFromContext(ctx, r.db)
+}
+
 func (r *repository) Create(ctx context.Context, post *Model) error {
-	if err := r.db.WithContext(ctx).Create(post).Error; err != nil {
+	if err := r.getDB(ctx).WithContext(ctx).Create(post).Error; err != nil {
 		return fmt.Errorf("failed to create post: %w", err)
 	}
 	return nil
@@ -38,7 +44,7 @@ func (r *repository) Create(ctx context.Context, post *Model) error {
 
 func (r *repository) GetByID(ctx context.Context, id uint) (*Model, error) {
 	var post Model
-	if err := r.db.WithContext(ctx).First(&post, id).Error; err != nil {
+	if err := r.getDB(ctx).WithContext(ctx).First(&post, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
@@ -49,7 +55,7 @@ func (r *repository) GetByID(ctx context.Context, id uint) (*Model, error) {
 
 func (r *repository) GetByUserID(ctx context.Context, userID uint, limit, offset int) ([]Model, error) {
 	var posts []Model
-	if err := r.db.WithContext(ctx).
+	if err := r.getDB(ctx).WithContext(ctx).
 		Where("user_id = ?", userID).
 		Limit(limit).
 		Offset(offset).
@@ -61,14 +67,14 @@ func (r *repository) GetByUserID(ctx context.Context, userID uint, limit, offset
 }
 
 func (r *repository) Update(ctx context.Context, post *Model) error {
-	if err := r.db.WithContext(ctx).Save(post).Error; err != nil {
+	if err := r.getDB(ctx).WithContext(ctx).Save(post).Error; err != nil {
 		return fmt.Errorf("failed to update post %d: %w", post.ID, err)
 	}
 	return nil
 }
 
 func (r *repository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Delete(&Model{}, id)
+	result := r.getDB(ctx).WithContext(ctx).Delete(&Model{}, id)
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete post %d: %w", id, result.Error)
 	}
@@ -80,7 +86,7 @@ func (r *repository) Delete(ctx context.Context, id uint) error {
 
 func (r *repository) List(ctx context.Context, limit, offset int) ([]Model, error) {
 	var posts []Model
-	if err := r.db.WithContext(ctx).
+	if err := r.getDB(ctx).WithContext(ctx).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -92,7 +98,7 @@ func (r *repository) List(ctx context.Context, limit, offset int) ([]Model, erro
 
 func (r *repository) Count(ctx context.Context) (int64, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).Model(&Model{}).Count(&count).Error; err != nil {
+	if err := r.getDB(ctx).WithContext(ctx).Model(&Model{}).Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("failed to count posts: %w", err)
 	}
 	return count, nil
@@ -100,7 +106,7 @@ func (r *repository) Count(ctx context.Context) (int64, error) {
 
 func (r *repository) CountByUserID(ctx context.Context, userID uint) (int64, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).
+	if err := r.getDB(ctx).WithContext(ctx).
 		Model(&Model{}).
 		Where("user_id = ?", userID).
 		Count(&count).Error; err != nil {
@@ -111,7 +117,7 @@ func (r *repository) CountByUserID(ctx context.Context, userID uint) (int64, err
 
 func (r *repository) SearchByTitle(ctx context.Context, title string, limit, offset int) ([]Model, error) {
 	var posts []Model
-	if err := r.db.WithContext(ctx).
+	if err := r.getDB(ctx).WithContext(ctx).
 		Where("LOWER(title) LIKE LOWER(?)", "%"+title+"%").
 		Limit(limit).
 		Offset(offset).
@@ -124,7 +130,7 @@ func (r *repository) SearchByTitle(ctx context.Context, title string, limit, off
 
 func (r *repository) GetByTags(ctx context.Context, tags []string, limit, offset int) ([]Model, error) {
 	var posts []Model
-	query := r.db.WithContext(ctx)
+	query := r.getDB(ctx).WithContext(ctx)
 
 	for _, tag := range tags {
 		query = query.Or("? = ANY(tags)", tag)
