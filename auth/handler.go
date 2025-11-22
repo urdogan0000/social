@@ -39,7 +39,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
+		httputil.RespondValidationError(w, r, err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validator.Validate(&req); err != nil {
-		httputil.RespondErrorWithMessage(w, http.StatusBadRequest, err.Error())
+		httputil.RespondValidationError(w, r, err)
 		return
 	}
 

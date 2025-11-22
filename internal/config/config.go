@@ -5,9 +5,10 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig
-	DB     DBConfig
-	JWT    JWTConfig
+	Server   ServerConfig
+	DB       DBConfig
+	JWT      JWTConfig
+	EventBus EventBusConfig
 }
 
 type ServerConfig struct {
@@ -30,6 +31,21 @@ type JWTConfig struct {
 	ExpirationHours int
 }
 
+type EventBusConfig struct {
+	Type string
+	Kafka KafkaConfig
+	NATS  NATSConfig
+}
+
+type KafkaConfig struct {
+	Brokers     []string
+	TopicPrefix string
+}
+
+type NATSConfig struct {
+	URL string
+}
+
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -48,6 +64,16 @@ func Load() *Config {
 		JWT: JWTConfig{
 			SecretKey:       env.GetString("JWT_SECRET", "your-secret-key-change-in-production"),
 			ExpirationHours: env.GetInt("JWT_EXPIRATION_HOURS", 24),
+		},
+		EventBus: EventBusConfig{
+			Type: env.GetString("EVENT_BUS_TYPE", "inmemory"),
+			Kafka: KafkaConfig{
+				Brokers:     env.GetStringSlice("KAFKA_BROKERS", []string{"localhost:9092"}),
+				TopicPrefix: env.GetString("KAFKA_TOPIC_PREFIX", "social"),
+			},
+			NATS: NATSConfig{
+				URL: env.GetString("NATS_URL", "nats://localhost:4222"),
+			},
 		},
 	}
 }

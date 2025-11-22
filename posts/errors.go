@@ -1,9 +1,9 @@
 package posts
 
-import "errors"
+import "github.com/urdogan0000/social/internal/domain"
 
 var (
-	ErrNotFound  = errors.New("post not found")
-	ErrForbidden = errors.New("forbidden: you can only modify your own posts")
+	ErrNotFound  = domain.ErrPostNotFound
+	ErrForbidden = domain.ErrPostForbidden
 )
 
