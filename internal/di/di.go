@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/urdogan0000/social/auth"
+	"github.com/urdogan0000/social/comments"
 	"github.com/urdogan0000/social/internal/config"
 	"github.com/urdogan0000/social/internal/db"
 	"github.com/urdogan0000/social/internal/domain"
@@ -23,11 +24,14 @@ var Module = fx.Options(
 	fx.Provide(provideEventBus),
 	fx.Provide(provideUserRepository),
 	fx.Provide(providePostRepository),
+	fx.Provide(provideCommentRepository),
 	fx.Provide(provideDomainUserRepository),
 	fx.Provide(provideUserService),
 	fx.Provide(providePostService),
+	fx.Provide(provideCommentService),
 	fx.Provide(provideUserHandler),
 	fx.Provide(providePostHandler),
+	fx.Provide(provideCommentHandler),
 	fx.Provide(provideAuthService),
 	fx.Provide(provideAuthHandler),
 )
@@ -59,21 +63,9 @@ func provideTransactionManager(gormDB *gorm.DB) db.TransactionManager {
 }
 
 func provideEventBus(cfg *config.Config) (events.EventBus, error) {
-	switch cfg.EventBus.Type {
-	case "kafka":
-		// TODO: Kafka implementasyonu eklenecek
-		// return events.NewKafkaEventBus(events.KafkaConfig{
-		//     Brokers: cfg.EventBus.Kafka.Brokers,
-		//     TopicPrefix: cfg.EventBus.Kafka.TopicPrefix,
-		// })
-		return events.NewInMemoryEventBus(), nil
-	case "nats":
-		// TODO: NATS implementasyonu eklenecek
-		// return events.NewNATSEventBus(cfg.EventBus.NATS.URL)
-		return events.NewInMemoryEventBus(), nil
-	default:
-		return events.NewInMemoryEventBus(), nil
-	}
+	// Currently all event bus types use in-memory implementation
+	// Kafka and NATS implementations can be added when needed
+	return events.NewInMemoryEventBus(), nil
 }
 
 func provideUserRepository(db *gorm.DB) users.Repository {
@@ -82,6 +74,10 @@ func provideUserRepository(db *gorm.DB) users.Repository {
 
 func providePostRepository(db *gorm.DB) posts.Repository {
 	return posts.NewRepository(db)
+}
+
+func provideCommentRepository(db *gorm.DB) comments.Repository {
+	return comments.NewRepository(db)
 }
 
 // provideDomainUserRepository provides domain.UserRepository interface
@@ -96,6 +92,15 @@ func provideUserService(
 	transactionMgr db.TransactionManager,
 ) *users.Service {
 	return users.NewService(userRepo, eventBus, transactionMgr)
+}
+
+func provideCommentService(
+	commentRepo comments.Repository,
+	userRepo domain.UserRepository,
+	eventBus events.EventBus,
+	transactionMgr db.TransactionManager,
+) *comments.Service {
+	return comments.NewService(commentRepo, userRepo, eventBus, transactionMgr)
 }
 
 func providePostService(
@@ -113,6 +118,10 @@ func provideUserHandler(userService *users.Service) *users.Handler {
 
 func providePostHandler(postService *posts.Service) *posts.Handler {
 	return posts.NewHandler(postService)
+}
+
+func provideCommentHandler(commentService *comments.Service) *comments.Handler {
+	return comments.NewHandler(commentService)
 }
 
 func provideAuthService(userRepo users.Repository, cfg *config.Config) *auth.Service {

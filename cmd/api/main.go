@@ -20,6 +20,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/urdogan0000/social/auth"
+	"github.com/urdogan0000/social/comments"
 	"github.com/urdogan0000/social/internal/api"
 	"github.com/urdogan0000/social/internal/config"
 	"github.com/urdogan0000/social/internal/di"
@@ -73,16 +74,18 @@ func registerRoutes(
 	lc fx.Lifecycle,
 	userHandler *users.Handler,
 	postHandler *posts.Handler,
+	commentHandler *comments.Handler,
 	authHandler *auth.Handler,
 	authService *auth.Service,
 	cfg *config.Config,
 ) {
 	app := &api.Application{
-		Config:      *cfg,
-		UserHandler: userHandler,
-		PostHandler: postHandler,
-		AuthHandler: authHandler,
-		AuthService: authService,
+		Config:         *cfg,
+		UserHandler:    userHandler,
+		PostHandler:    postHandler,
+		CommentHandler: commentHandler,
+		AuthHandler:    authHandler,
+		AuthService:    authService,
 	}
 
 	var srv *http.Server
@@ -117,5 +120,6 @@ func runMigrations(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&users.Model{},
 		&posts.Model{},
+		&comments.Model{},
 	)
 }

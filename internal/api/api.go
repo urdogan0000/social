@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/urdogan0000/social/auth"
+	"github.com/urdogan0000/social/comments"
 	_ "github.com/urdogan0000/social/docs/swagger"
 	"github.com/urdogan0000/social/internal/config"
 	"github.com/urdogan0000/social/internal/middleware"
@@ -15,11 +16,12 @@ import (
 )
 
 type Application struct {
-	Config      config.Config
-	UserHandler *users.Handler
-	PostHandler *posts.Handler
-	AuthHandler *auth.Handler
-	AuthService *auth.Service
+	Config         config.Config
+	UserHandler    *users.Handler
+	PostHandler    *posts.Handler
+	CommentHandler *comments.Handler
+	AuthHandler    *auth.Handler
+	AuthService    *auth.Service
 }
 
 func (app *Application) Mount() http.Handler {
@@ -64,11 +66,31 @@ func (app *Application) Mount() http.Handler {
 			r.Get("/tags", app.PostHandler.GetByTags)
 			r.Get("/{id}", app.PostHandler.Get)
 
+			r.Route("/{postID}/comments", func(r chi.Router) {
+				r.Get("/", app.CommentHandler.GetByPostID)
+
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.AuthMiddleware(app.AuthService))
+					r.Post("/", app.CommentHandler.Create)
+				})
+			})
+
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuthMiddleware(app.AuthService))
 				r.Post("/", app.PostHandler.Create)
 				r.Put("/{id}", app.PostHandler.Update)
 				r.Delete("/{id}", app.PostHandler.Delete)
+			})
+		})
+
+		r.Route("/comments", func(r chi.Router) {
+			r.Get("/", app.CommentHandler.List)
+			r.Get("/{id}", app.CommentHandler.GetByID)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuthMiddleware(app.AuthService))
+				r.Put("/{id}", app.CommentHandler.Update)
+				r.Delete("/{id}", app.CommentHandler.Delete)
 			})
 		})
 	})
